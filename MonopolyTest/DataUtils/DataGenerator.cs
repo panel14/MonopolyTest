@@ -14,19 +14,22 @@ namespace MonopolyTest.DataUtils
             return start.AddDays(new Random().Next(range));
         }
 
-        private static Box GenerateBox(Guid? palleteId)
+        private static Box GenerateBox(Pallete pallete)
         {
             Random random = new();
+
+            int widthLimit = pallete.Width;
+            int heightLimit = pallete.Height;
 
             return new Box()
             {
                 Id = Guid.NewGuid(),
-                Width = random.Next(1, BoxLimit),
-                Height = random.Next(1, BoxLimit),
+                Width = random.Next(1, widthLimit - 1),
+                Height = random.Next(1, heightLimit - 1),
                 Length = random.Next(1, BoxLimit),
                 Weigth = random.Next(1, BoxLimit),
                 ProductionDate = GenerateDate(),
-                PalleteId = palleteId
+                PalleteId = pallete.Id
             };
         }
 
@@ -48,18 +51,18 @@ namespace MonopolyTest.DataUtils
         public static StorageCollection GenerateStorage(int palletesNums = 3, int boxNums = 10)
         {
             StorageCollection storage = new();
-            List<Guid> palleteIds = new();
+            List<Pallete> palletes = new();
             for (int i = 0; i < palletesNums; i++)
             {
                 Pallete pallete = GeneratePallete();
-                palleteIds.Add(pallete.Id);
+                palletes.Add(pallete);
                 storage.AddPallete(pallete);
             }
 
             for (int i = 0; i < boxNums; i++)
             {
-                Guid curPallete = palleteIds[i % palletesNums];
-                storage.AddBoxToPallette(GenerateBox(curPallete), curPallete);
+                Pallete curPallete = palletes[i % palletesNums];
+                storage.AddBoxToPallette(GenerateBox(curPallete), curPallete.Id);
             }
 
             return storage;

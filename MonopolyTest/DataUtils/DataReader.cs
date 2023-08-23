@@ -1,13 +1,21 @@
 ﻿using MonopolyTest.Domain.Models;
 using MonopolyTest.Utils;
 using System.Data.SqlClient;
+using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MonopolyTest.DataReader
 {
+    public enum SaveType
+    {
+        FILEPATH,
+        CONNECTION_STRING,
+    }
+
     public static class DataReader
     {
-        private static readonly string connetionFilename = "connection.txt";
+        private static readonly string configFilename = Path.Combine(Environment.CurrentDirectory, "config.txt");
         //TODO: Add file format checks
         public static StorageCollection ReadDataFromFile(string filePath)
         {
@@ -111,40 +119,54 @@ namespace MonopolyTest.DataReader
             return new StorageCollection(palletes, boxes);
         }
 
-        public static void SaveDataToDB(StorageCollection collection, string connectionString, string palleteTable = "Pallete", string boxTable = "Box")
+        public static void SaveDataToDB(StorageCollection collection, string connectionString, string palleteTable = "Pallete", string boxTable = "Box", bool needTruncate = false)
         {
             using SqlConnection connection = new(connectionString);
             connection.OpenAsync();
 
-            StringBuilder insertBoxes = new("begin transaction;");
+            if (needTruncate)
+            {
+                using SqlCommand truncate = connection.CreateCommand();
+                using SqlTransaction transaction = connection.BeginTransaction();
+
+                truncate.Connection = connection;
+                truncate.Transaction = transaction;
+
+                truncate.CommandText = $"truncate table {palleteTable}";
+                truncate.ExecuteNonQuery();
+
+                truncate.CommandText = $"truncate table {boxTable}";
+                truncate.ExecuteNonQuery();
+
+                transaction.Commit();
+            }
+
+
+            using SqlCommand saveBoxes = connection.CreateCommand();
+            using SqlTransaction saveBoxesTrans = connection.BeginTransaction();
+
+            saveBoxes.Connection = connection;
+            saveBoxes.Transaction = saveBoxesTrans;
+
             foreach (Box box in collection.Boxes)
             {
-                insertBoxes.Append($"insert into {boxTable} values");
-                insertBoxes.AppendLine(box.ToString() + ';');
+                saveBoxes.CommandText = $"insert into {boxTable} values {box}";
+                saveBoxes.ExecuteNonQuery();
             }
-            insertBoxes.AppendLine("commit;");
+            saveBoxesTrans.Commit();
 
-            using SqlCommand saveBoxes = new()
-            {
-                Connection = connection,
-                CommandText = insertBoxes.ToString(),
-            };
-            saveBoxes.ExecuteNonQuery();
+            using SqlCommand savePalletes = connection.CreateCommand();
+            using SqlTransaction savePalletesTrans = connection.BeginTransaction();
 
-            StringBuilder insertPalletes = new("begin transaction;");
+            savePalletes.Connection = connection;
+            savePalletes.Transaction = savePalletesTrans;
+
             foreach (Pallete pallete in collection.Palletes)
             {
-                insertPalletes.Append($"insert into {palleteTable} values");
-                insertPalletes.AppendLine(pallete.ToString() + ';');
+                savePalletes.CommandText = $"insert into {palleteTable} values {pallete}";
+                savePalletes.ExecuteNonQuery();
             }
-            insertPalletes.AppendLine("commit;");
-
-            using SqlCommand savePalletes = new()
-            {
-                Connection = connection,
-                CommandText = insertPalletes.ToString()
-            };
-            savePalletes.ExecuteNonQuery();
+            savePalletesTrans.Commit();
         }
 
         public static void GetIntValueFromUser(out int value, string message, string error, Predicate<int> pred)
@@ -152,6 +174,22 @@ namespace MonopolyTest.DataReader
             Console.WriteLine(message);
             while (!int.TryParse(Console.ReadLine(), out value) || !pred(value))
             {
+                Console.WriteLine(error);
+            }
+        }
+
+        public static void GetStringValueFromUser(out string value, string message, string error, string pattern = @".+")
+        {
+            Regex regex = new(pattern);
+
+            Console.WriteLine(message);
+            while (true)
+            {
+                value = Console.ReadLine();
+                if (value != null && regex.IsMatch(value))
+                {
+                    return;
+                }
                 Console.WriteLine(error);
             }
         }
@@ -236,8 +274,8 @@ namespace MonopolyTest.DataReader
             {
                 Console.WriteLine(pair.Key + " : " + pair.Value);
             }
-            string message = $"Введите номер соответствующего Id:";
-            GetIntValueFromUser(out int index, message, "Неверный формат ввода.", x => x > 0 && x < j);
+            string message = $"Введите номер соответствующего Id: (введите \"0\" чтобы оставить поле пустым)";
+            GetIntValueFromUser(out int index, message, "Неверный формат ввода.", x => x >= 0 && x < j);
 
             return new Box() 
             {
@@ -247,26 +285,107 @@ namespace MonopolyTest.DataReader
                 Length = values[2],
                 Weigth = values[3],
                 ProductionDate = prod,
-                PalleteId = palletsIds[index],
+                PalleteId = (index > 0) ? palletsIds[index] : null,
             };
         }
 
-        public static void SaveConnectionsStrings(string connectionString)
+        private static void SaveConfigurationStrings(string str, SaveType type)
         {
-            File.AppendAllText(connetionFilename, connectionString + "\n");
+            List<string> lines = File.ReadAllLines(configFilename).ToList();
+            
+            foreach (string line in Enum.GetNames(typeof(SaveType)))
+            {
+                if (!lines.Contains(line))
+                {
+                    lines.Add(line);
+                }
+            }
+
+            lines.Insert(lines.IndexOf(type.ToString()) + 1, str);
+            File.WriteAllLines(configFilename, lines);
         }
 
-        public static Dictionary<int, string> GetConnectionsStrings()
+        private static Dictionary<int, string> GetConfigurationStrings(SaveType type)
         {
-            string[] strings = File.ReadAllLines(connetionFilename);
             Dictionary<int, string> pairs = new();
 
-            foreach (string s in strings)
+            List<string> strings = File.ReadAllLines(configFilename).ToList();
+            int midIndex = strings.IndexOf(SaveType.CONNECTION_STRING.ToString());
+
+            int startIndex = 0;
+            int endIndex = 0;
+
+            switch (type)
             {
-                string[] pair = s.Split(':');
-                pairs.Add(int.Parse(pair[0]), pair[1].Trim());
+                case SaveType.CONNECTION_STRING:
+                    startIndex = midIndex + 1;
+                    endIndex = strings.Count;
+                    break;
+                case SaveType.FILEPATH:
+                    startIndex = 1;
+                    endIndex = midIndex;
+                    break;
+                default:
+                    break;
+            }
+
+            int index = 0;
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                pairs.Add(index, strings[i].Trim());
+                index++;
             }
             return pairs;
+        }
+
+        private static string GetAndSaveUserString(string message, string error, SaveType saveType)
+        {
+            GetStringValueFromUser(out string newLine, message, error);
+
+            string saveMessage = "Сохранить строку?[y/n]:";
+            GetStringValueFromUser(out string answer, saveMessage, saveMessage, "^[yn]{1}$");
+
+            if (answer.Equals("y"))
+            {
+                SaveConfigurationStrings(newLine, saveType);
+            }
+
+            return newLine;
+        }
+
+        public static string GetUserStringWithSave(string name, SaveType saveType)
+        {
+            Dictionary<int, string> strings = GetConfigurationStrings(saveType);
+            string newLine;
+            if (strings.Count > 0)
+            {
+                Console.WriteLine($"Имеются сохраненные {name}");
+                foreach (KeyValuePair<int, string> pair in strings)
+                {
+                    Console.WriteLine(pair.Key + " : " + pair.Value);
+                }
+                Console.WriteLine(strings.Count + " : Ввести новую строку");
+                Console.WriteLine("Выберите нужную опцию:");
+
+                int index;
+                while (!int.TryParse(Console.ReadLine(), out index) || index < 0 || index > strings.Count)
+                {
+                    Console.WriteLine("Неверный формат ввода. Повторите попытку:");
+                }
+                if (index == strings.Count)
+                {
+                    newLine = GetAndSaveUserString("Введите строку", "Строка не должна быть пустой", saveType);
+                }
+                else
+                {
+                    newLine = strings[index];
+                }
+            }
+            else
+            {
+                newLine = GetAndSaveUserString("Введите строку", "Строка не должна быть пустой", saveType);
+            }
+            return newLine;
         }
     }
 }

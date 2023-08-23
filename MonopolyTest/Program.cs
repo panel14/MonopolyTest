@@ -1,16 +1,17 @@
 ﻿using MonopolyTest.DataReader;
 using MonopolyTest.DataUtils;
 using MonopolyTest.Domain.Models;
-using System.Collections.Generic;
-using System.Linq;
 
-Console.WriteLine("Добро пожаловать! Введите одну из команд:");
-Console.WriteLine("Ввести данные:\n" +
+string infoDataCommands = "Ввести данные:\n" +
     "h  - вручную\n" +
     "g  - сгенерировать набор данных\n" +
     "f - прочитать набор из файла\n" +
     "db - подключится к существующей базе данных\n" +
-    "next - закончить набор данных");
+    "info - вывести информацию по текущим командам\n" +
+    "next - закончить набор данных";
+
+Console.WriteLine("Добро пожаловать! Введите одну из команд:");
+Console.WriteLine(infoDataCommands);
 
 string wrongFormat = "Неизвестная команда. Повторите ввод";
 string? command;
@@ -26,9 +27,9 @@ while ((command = Console.ReadLine()) != "next")
             List<Pallete> palletes = new();
 
             Console.WriteLine("Что хотите добавить?\np - добавить паллету\nb - добавить коробку\nend - закончить ввод");
-            string? handCommand = Console.ReadLine();
+            string? handCommand;
 
-            while (handCommand != "end")
+            while ((handCommand = Console.ReadLine()) != "end")
             {
                 switch (handCommand)
                 {
@@ -46,11 +47,13 @@ while ((command = Console.ReadLine()) != "next")
                         Console.WriteLine(wrongFormat);
                         break;
                 }
+                Console.WriteLine("Введите команду:");
             }
 
             storageCollection = new StorageCollection(palletes, boxes);
 
             break;
+
         case "g":
             DataReader.GetIntValueFromUser(out int pNums, "Введите количество палет:", "Неверный формат. Введите целое число больше 0", x => x > 0);
             DataReader.GetIntValueFromUser(out int bNums, "Введите количество коробок:", "Неверный формат. Введите целое число больше 0", x => x > 0);
@@ -60,24 +63,41 @@ while ((command = Console.ReadLine()) != "next")
             break;
         case "f":
             Console.WriteLine("Введите полное имя файла (абсолютный путь):");
-            string? filePath = Console.ReadLine();
-            if (filePath != null && !filePath.Equals(string.Empty))
+            string? filePath = DataReader.GetUserStringWithSave("имена файлов", SaveType.FILEPATH);
+            try
             {
-                try
-                {
-                    storageCollection = DataReader.ReadDataFromFile(filePath);
-                    Console.WriteLine("Коллеция прочитана.");
-                }
-                catch(FileNotFoundException)
-                {
-                    Console.WriteLine("Указанного файла не существует.");
-                }
+                storageCollection = DataReader.ReadDataFromFile(filePath);
+                Console.WriteLine("Коллеция прочитана.");
             }
+            catch(FileNotFoundException)
+            {
+                Console.WriteLine("Указанного файла не существует.");
+            }
+
             break;
+
         case "db":
-            string newLine = GetUserConnectionString();            
-            storageCollection = DataReader.ReadDataFromDB(newLine);
-            Console.WriteLine("Коллеция прочитана.");
+            Console.WriteLine("Введите строку подключения:");
+            string newLine = DataReader.GetUserStringWithSave("строки подключения", SaveType.CONNECTION_STRING);
+
+            //Console.WriteLine("Введите название таблицы с паллетами, для пропуска нажмите Enter. При пропуске будет использовано значение при умолчанию (\"Pallete\"):");
+            //string? palleteTableName = Console.ReadLine();
+            //Console.WriteLine("Введите название таблицы с коробками, для пропуска нажмите Enter. При пропуске будет использовано значение при умолчанию (\"Box\"):");
+            //string? boxTableName = Console.ReadLine();
+
+            try
+            {
+                storageCollection = DataReader.ReadDataFromDB(newLine);
+                Console.WriteLine("Коллеция прочитана.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Ошибка: {0}. Попробуйте ещё раз.", ex.Message);
+            }
+
+            break;
+        case "info":
+            Console.WriteLine(infoDataCommands);
             break;
         case "next":
             break;
@@ -88,17 +108,18 @@ while ((command = Console.ReadLine()) != "next")
     Console.WriteLine("Введите команду:");
 }
 
-Console.WriteLine("Выберите опцию:\n"
+string infoOptions = "Выберите опцию:\n"
     + "sh - посмотреть всю коллекцию\n"
     + "sf - сохранить коллецию в файл\n"
-    + "sdb - сохранить коллекцию в базу данных"
-    + "exit - выйти из приложения");
+    + "sdb - сохранить коллекцию в базу данных\n"
+    + "info - вывести информацию по опциям\n"
+    + "exit - выйти из приложения\n\n"
+    + "Функции вывода на экран по заданию:\n"
+    + "t1 - группировка палет по сроку годности\n"
+    + "t2 - сортировка паллет по возрастанию объема\n"
+    + "sht - показать задания полностью";
 
-Console.WriteLine();
-Console.WriteLine("Функции вывода на экран по заданию:\n" +
-    "t1 - группировка палет по сроку годности\n" +
-    "t2 - сортировка паллет по возрастанию объема\n" +
-    "sht - показать задания полностью");
+Console.WriteLine(infoOptions);
 
 string? option;
 
@@ -111,40 +132,42 @@ while ((option = Console.ReadLine()) != "exit")
             break;
         case "sf":
             Console.WriteLine("Введите полное имя файла (абсолютный путь):");
-            string? filePath = Console.ReadLine();
-            if (filePath != null && !filePath.Equals(string.Empty))
+            string filePath = DataReader.GetUserStringWithSave("имена файлов", SaveType.FILEPATH);
+            try
             {
-                try
-                {
-                    DataReader.SaveDataToFile(storageCollection, filePath);
-                    Console.WriteLine("Коллекция сохранена.");
-                }
-                catch (FileNotFoundException)
-                {
-                    Console.WriteLine("Указанного файла не существует.");
-                }
+                DataReader.SaveDataToFile(storageCollection, filePath);
+                Console.WriteLine("Коллекция сохранена.");
             }
+            catch (FileNotFoundException)
+            {
+                Console.WriteLine("Указанного файла не существует.");
+            }
+
             break;
         case "sdb":
-            string newLine = GetUserConnectionString();
+            Console.WriteLine("Введите строку подключения:");
+            string newLine = DataReader.GetUserStringWithSave("строки подключения", SaveType.CONNECTION_STRING);
+
+            string message = "Очистить таблицей перед сохранением?[y/n]\nПри согласии, будет принята попытка очистить таблицы паллет и коробок (TRUNCATE TABLE...)";
+            DataReader.GetStringValueFromUser(out string answer, message, "Очистить таблицей перед сохранением?[y/n]", "^[yn]{1}$");
+            
             DataReader.SaveDataToDB(storageCollection, newLine);
             Console.WriteLine("Коллекция сохранена");
             break;
-        case "t1":
+        case "t2":
             List<Guid> palletes = DataSorter.SortSetByBBDate(storageCollection);
             foreach (Guid p in palletes)
             {
                 Console.WriteLine("ID: {0}. Срок годности: {1}. Объем: {2}", p, storageCollection.GetPalleteBBDate(p), storageCollection.GetPalleteVolume(p));
-                Console.WriteLine();
-                Console.WriteLine("Все сроки годности:");
             }
+            Console.WriteLine("Все сроки годности:");
             List<DateTime> BBDates = storageCollection.Palletes.Select(x => storageCollection.GetPalleteBBDate(x.Id)).OrderBy(x => x).ToList();
             foreach (DateTime date in BBDates)
             {
                 Console.WriteLine(date.ToString("dd/MM/yyyy"));
             }
             break;
-        case "t2":
+        case "t1":
             IEnumerable<IOrderedEnumerable<Pallete>> groups = DataSorter.SortSetByBBDateGroup(storageCollection);
             Console.WriteLine("ГРУППЫ:");
             int i = 0;
@@ -164,6 +187,9 @@ while ((option = Console.ReadLine()) != "exit")
                 " отсортировать по возрастанию срока годности, в каждой группе отсортировать паллеты по весу.\n" +
                 "t2 (Task 2): 3 паллеты, которые содержат коробки с наибольшим сроком годности, отсортированные по возрастанию объема.");
             break;
+        case "info":
+            Console.WriteLine(infoOptions);
+            break;
         case "exit":
             Console.WriteLine("До свидания!");
             break;
@@ -172,57 +198,4 @@ while ((option = Console.ReadLine()) != "exit")
             break;
     }
     Console.WriteLine("Введите команду:");
-}
-
-
-//Add checks
-static string GetUserString()
-{
-    Console.WriteLine("Введите строку подключения:");
-    string newLine = Console.ReadLine();
-    Console.WriteLine("Сохранить новую строку?[y/n]");
-
-    string? answer = Console.ReadLine();
-
-    if (answer != null || answer.Equals("y"))
-    {
-        DataReader.SaveConnectionsStrings(newLine);
-    }
-
-    return newLine;
-}
-
-static string GetUserConnectionString()
-{
-    Dictionary<int, string> strings = DataReader.GetConnectionsStrings();
-    string newLine = string.Empty;
-    if (strings.Count > 0)
-    {
-        Console.WriteLine("Имеются сохраненные строки подключения:");
-        foreach (KeyValuePair<int, string> pair in strings)
-        {
-            Console.WriteLine(pair.Key + " : " + pair.Value);
-        }
-        Console.WriteLine(strings.Count + " : Ввести новую строку подключения");
-        Console.WriteLine("Выберите нужную опцию:");
-
-        int index;
-        while (!int.TryParse(Console.ReadLine(), out index) || index < 0 || index > strings.Count)
-        {
-            Console.WriteLine("Неверный формат ввода. Повторите попытку:");
-        }
-        if (index == strings.Count)
-        {
-            newLine = GetUserString();
-        }
-        else
-        {
-            newLine = strings[index];
-        }
-    }
-    else
-    {
-        newLine = GetUserString();
-    }
-    return newLine;
 }
