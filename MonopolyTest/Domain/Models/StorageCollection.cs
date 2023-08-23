@@ -19,7 +19,12 @@
 
         private DateTime CountPalleteProductionDate(Guid palleteId)
         {
-            return Boxes.Where(x => x.PalleteId == palleteId).Select(x => GetBoxBBDate(x.Id)).Min();
+            var boxes = Boxes.Where(x => x.PalleteId == palleteId);
+            if (boxes.Any())
+            {
+                return boxes.Select(x => x.ProductionDate).Min();
+            }
+            return Palletes.First(x => x.Id == palleteId).ProductionDate;
         }
 
         public DateTime GetBoxBBDate(Guid boxId)
@@ -39,7 +44,7 @@
             {
                 return pallete.ProductionDate + new TimeSpan(100, 0, 0, 0);
             }
-            return DateTime.Now;
+            return DateTime.MinValue;
         }
 
         public int GetBoxVolume(Guid boxId)
@@ -54,7 +59,13 @@
 
         public int GetPalleteVolume(Guid palleteId)
         {
-            return Boxes.Where(x => x.PalleteId == palleteId).Select(x => x.Width * x.Height * x.Length).Sum();
+            Pallete? pallete = Palletes.FirstOrDefault(x => x.Id == palleteId);
+            int palleteWeigth = 0;
+            if (pallete != null)
+            {
+                palleteWeigth = pallete.Length * pallete.Width * pallete.Height;
+            }
+            return Boxes.Where(x => x.PalleteId == palleteId).Select(x => x.Width * x.Height * x.Length).Sum() + palleteWeigth;
         }
 
         public void AddPallete(Pallete pallete)
@@ -72,9 +83,9 @@
             }
         }
 
-        public int CountPalleteWeigth(Guid palleteId)
+        private int CountPalleteWeigth(Guid palleteId)
         {
-            return Boxes.Where(x => x.PalleteId == palleteId).Select(x => x.Weigth).Sum();
+            return Boxes.Where(x => x.PalleteId == palleteId).Select(x => x.Weigth).Sum() + 30;
         }
 
         public void AddBoxToPallette(Box box, Guid palleteId)
@@ -84,7 +95,7 @@
             {
                 if (box.Width > pallete.Width ||  box.Height > pallete.Height)
                 {
-                    return;
+                    box.PalleteId = null;
                 }
                 Boxes.Add(box);
 

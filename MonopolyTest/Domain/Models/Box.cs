@@ -16,7 +16,7 @@ namespace MonopolyTest.Domain.Models
 
         public static Box Parse(string boxString)
         {
-            boxString = boxString.Remove(0);
+            boxString = boxString.Remove(0, 1);
             boxString = boxString.Remove(boxString.Length - 1);
 
             string[] values = boxString.Split(",");
@@ -26,11 +26,12 @@ namespace MonopolyTest.Domain.Models
                 Width = int.Parse(values[1]),
                 Height = int.Parse(values[2]),
                 Length = int.Parse(values[3]),
-                Weigth = int.Parse(values[4])
+                Weigth = int.Parse(values[4]),
+                ProductionDate = DateTime.Parse(values[5]),
             };
             if (values.Length > 5)
             {
-                box.PalleteId = Guid.Parse(values[5]);
+                box.PalleteId = Guid.Parse(values[6]);
             }
             return box;
         }
@@ -44,7 +45,7 @@ namespace MonopolyTest.Domain.Models
             stringBuilder.Append(Height + ", ");
             stringBuilder.Append(Length + ", ");
             stringBuilder.Append(Weigth + ", ");
-            stringBuilder.AppendFormat("yyyy-MM-dd", ProductionDate.ToString() + ", ");
+            stringBuilder.Append(ProductionDate.ToString() + ", ");
             if (PalleteId !=  null)
             {
                 stringBuilder.Append(PalleteId + ")");

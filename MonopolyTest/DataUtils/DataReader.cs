@@ -7,6 +7,7 @@ namespace MonopolyTest.DataReader
 {
     public static class DataReader
     {
+        private static readonly string connetionFilename = "connection.txt";
         //TODO: Add file format checks
         public static StorageCollection ReadDataFromFile(string filePath)
         {
@@ -42,7 +43,7 @@ namespace MonopolyTest.DataReader
                 throw new FileNotFoundException();
             }
 
-            StringBuilder sb = new StringBuilder("Pallets:");
+            StringBuilder sb = new("Pallets:\n");
             foreach (Pallete pallete in storage.Palletes)
             {
                 sb.AppendLine(pallete.ToString());
@@ -146,10 +147,10 @@ namespace MonopolyTest.DataReader
             savePalletes.ExecuteNonQuery();
         }
 
-        private static void GetIntValueFromUser(out int value, string message, string error, Predicate<int> pred)
+        public static void GetIntValueFromUser(out int value, string message, string error, Predicate<int> pred)
         {
             Console.WriteLine(message);
-            while (int.TryParse(Console.ReadLine(), out value) || !pred(value))
+            while (!int.TryParse(Console.ReadLine(), out value) || !pred(value))
             {
                 Console.WriteLine(error);
             }
@@ -158,7 +159,7 @@ namespace MonopolyTest.DataReader
         private static void GetDateValueFromUser(out DateTime value, string message, string error)
         {
             Console.WriteLine(message);
-            while (DateTime.TryParse(Console.ReadLine(), out value))
+            while (!DateTime.TryParse(Console.ReadLine(), out value))
             {
                 Console.WriteLine(error);
             }
@@ -194,7 +195,7 @@ namespace MonopolyTest.DataReader
                 Height = values[1],
                 Length = values[2],
                 Weigth = 30,
-                ProductionDate = DateTime.Now,
+                ProductionDate = DateTime.MinValue,
             };
         }
 
@@ -248,6 +249,24 @@ namespace MonopolyTest.DataReader
                 ProductionDate = prod,
                 PalleteId = palletsIds[index],
             };
+        }
+
+        public static void SaveConnectionsStrings(string connectionString)
+        {
+            File.AppendAllText(connetionFilename, connectionString + "\n");
+        }
+
+        public static Dictionary<int, string> GetConnectionsStrings()
+        {
+            string[] strings = File.ReadAllLines(connetionFilename);
+            Dictionary<int, string> pairs = new();
+
+            foreach (string s in strings)
+            {
+                string[] pair = s.Split(':');
+                pairs.Add(int.Parse(pair[0]), pair[1].Trim());
+            }
+            return pairs;
         }
     }
 }

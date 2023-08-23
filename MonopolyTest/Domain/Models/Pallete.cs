@@ -10,13 +10,13 @@ namespace MonopolyTest.Domain.Models
         public int Length { get; set; }
         public int Weigth { get; set; }
 
-        public DateTime ProductionDate { get; set; }
+        public DateTime ProductionDate { get; set; } = DateTime.MinValue;
 
         public Pallete() { }
 
         public static Pallete Parse(string palleteString)
         {
-            palleteString = palleteString.Remove(0);
+            palleteString = palleteString.Remove(0, 1);
             palleteString = palleteString.Remove(palleteString.Length - 1);
 
             string[] values = palleteString.Split(',');
@@ -26,7 +26,8 @@ namespace MonopolyTest.Domain.Models
                 Width = int.Parse(values[1]),
                 Height = int.Parse(values[2]),
                 Length = int.Parse(values[3]),
-                Weigth = int.Parse(values[4])
+                Weigth = int.Parse(values[4]),
+                ProductionDate = DateTime.Parse(values[5])
             };
             return pallete;
         }
@@ -40,7 +41,7 @@ namespace MonopolyTest.Domain.Models
             stringBuilder.Append(Height + ", ");
             stringBuilder.Append(Length + ", ");
             stringBuilder.Append(Weigth + ", ");
-            stringBuilder.AppendFormat("yyyy-MM-dd", ProductionDate.ToString() + ")");
+            stringBuilder.Append(ProductionDate.ToString() + ")");
             return stringBuilder.ToString();
         }
     }

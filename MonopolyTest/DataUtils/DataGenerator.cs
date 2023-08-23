@@ -41,7 +41,7 @@ namespace MonopolyTest.DataUtils
                 Height = random.Next(1, PalleteLimit),
                 Length = random.Next(1, PalleteLimit),
                 Weigth = 30,
-                ProductionDate = DateTime.Now,
+                ProductionDate = DateTime.MinValue,
             };
         }
 
@@ -56,11 +56,9 @@ namespace MonopolyTest.DataUtils
                 storage.AddPallete(pallete);
             }
 
-            Random random = new();
-
             for (int i = 0; i < boxNums; i++)
             {
-                Guid curPallete = palleteIds[random.Next(palletesNums - 1)];
+                Guid curPallete = palleteIds[i % palletesNums];
                 storage.AddBoxToPallette(GenerateBox(curPallete), curPallete);
             }
 
