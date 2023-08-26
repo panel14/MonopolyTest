@@ -22,12 +22,12 @@ namespace MonopolyTest.Domain.Models
             string[] values = palleteString.Split(',');
             Pallete pallete = new()
             {
-                Id = Guid.Parse(values[0]),
+                Id = Guid.Parse(values[0].Trim('\'')),
                 Width = int.Parse(values[1]),
                 Height = int.Parse(values[2]),
                 Length = int.Parse(values[3]),
                 Weigth = int.Parse(values[4]),
-                ProductionDate = DateTime.Parse(values[5])
+                ProductionDate = DateTime.Parse(values[5].Trim(new char[] { '\'', ' ' }))
             };
             return pallete;
         }
@@ -36,12 +36,12 @@ namespace MonopolyTest.Domain.Models
         {
             StringBuilder stringBuilder = new();
             stringBuilder.Append('(');
-            stringBuilder.Append(Id + ", ");
-            stringBuilder.Append(Width + ", ");
-            stringBuilder.Append(Height + ", ");
-            stringBuilder.Append(Length + ", ");
-            stringBuilder.Append(Weigth + ", ");
-            stringBuilder.Append(ProductionDate.ToString() + ")");
+            stringBuilder.Append($"'{Id}', ");
+            stringBuilder.Append($"{Width}, ");
+            stringBuilder.Append($"{Height}, ");
+            stringBuilder.Append($"{Length}, ");
+            stringBuilder.Append($"{Weigth}, ");
+            stringBuilder.Append($"'{ProductionDate:yyyy-MM-dd}')");
             return stringBuilder.ToString();
         }
     }

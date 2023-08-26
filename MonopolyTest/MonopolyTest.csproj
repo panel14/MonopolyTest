@@ -9,10 +9,14 @@
 
   <ItemGroup>
     <None Remove="config.txt" />
+    <None Remove="createScript.sql" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="config.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="createScript.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

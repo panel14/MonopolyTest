@@ -16,8 +16,8 @@ namespace MonopolyTest.DataUtils
                 Console.WriteLine("{0, -25} {1, 5}", "ВЫСОТА", box.Length);
                 Console.WriteLine("{0, -25} {1, 5}", "Вес", box.Weigth);
                 Console.WriteLine("{0, -25} {1, 5}", "ОБЪЕМ", storage.GetBoxVolume(box.Id));
-                Console.WriteLine("{0, -25} {1, 5}", "ДАТА ПРОИЗВОДСТВА", box.ProductionDate);
-                Console.WriteLine("{0, -25} {1, 5}", "СРОК ГОДНОСТИ", storage.GetBoxBBDate(box.Id));
+                Console.WriteLine("{0, -25} {1, 5}", "ДАТА ПРОИЗВОДСТВА", box.ProductionDate.ToString("yyyy-MM-dd"));
+                Console.WriteLine("{0, -25} {1, 5}", "СРОК ГОДНОСТИ", storage.GetBoxBBDate(box.Id).ToString("yyyy-MM-dd"));
                 if (box.PalleteId != null)
                 {
                     Console.WriteLine("{0, -25} {1, 5}", "СТОИТ НА ПАЛЛЕТЕ", box.PalleteId);
@@ -42,8 +42,8 @@ namespace MonopolyTest.DataUtils
                 Console.WriteLine("{0, -25} {1, 5}", "ВЫСОТА", pallete.Length);
                 Console.WriteLine("{0, -25} {1, 5}", "Вес", pallete.Weigth);
                 Console.WriteLine("{0, -25} {1, 5}", "ОБЪЕМ", storage.GetPalleteVolume(pallete.Id));
-                Console.WriteLine("{0, -25} {1, 5}", "ДАТА ПРОИЗВОДСТВА", pallete.ProductionDate);
-                Console.WriteLine("{0, -25} {1, 5}", "СРОК ГОДНОСТИ", storage.GetPalleteBBDate(pallete.Id));
+                Console.WriteLine("{0, -25} {1, 5}", "ДАТА ПРОИЗВОДСТВА", pallete.ProductionDate.ToString("yyyy-MM-dd"));
+                Console.WriteLine("{0, -25} {1, 5}", "СРОК ГОДНОСТИ", storage.GetPalleteBBDate(pallete.Id).ToString("yyyy-MM-dd"));
 
                 Console.WriteLine();
             }
@@ -66,14 +66,14 @@ namespace MonopolyTest.DataUtils
 
                 int weight = 0;
                 int volume = 0;
-                DateTime min = DateTime.Now;
+                DateTime min = DateTime.MinValue;
                 foreach (Box box in boxes)
                 {
                     Console.WriteLine("КОРОБКА {0}:", j);
                     ShowBox(storage, box.Id);
                     weight += box.Weigth;
                     volume += storage.GetBoxVolume(box.Id);
-                    if (box.ProductionDate < min)
+                    if (box.ProductionDate > min)
                     {
                         min = box.ProductionDate;
                     }
@@ -83,7 +83,7 @@ namespace MonopolyTest.DataUtils
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Общий вес {0} коробок: {1}. Вес паллеты: {2}", j, weight, pallete.Weigth);
                 Console.WriteLine("Объем {0} коробок: {1}. Объём паллеты: {2}", j, volume, storage.GetPalleteVolume(pallete.Id));
-                Console.WriteLine("Минимальная дата производства из коробок: {0}. Дата производства палеты: {1}", min, pallete.ProductionDate);
+                Console.WriteLine("Минимальная дата производства из коробок: {0}. Дата производства палеты: {1}", min.ToString("yyy-MM-dd"), pallete.ProductionDate.ToString("yyyy-MM-dd"));
                 Console.ForegroundColor = ConsoleColor.White;
 
                 j = 0;

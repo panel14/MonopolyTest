@@ -11,7 +11,7 @@ namespace MonopolyTest.DataUtils
         {
             DateTime start = new(2011, 1, 1);
             int range = (DateTime.Today - start).Days;
-            return start.AddDays(new Random().Next(range));
+            return start.AddDays(new Random().Next(range)).Date;
         }
 
         private static Box GenerateBox(Pallete pallete)
@@ -40,11 +40,11 @@ namespace MonopolyTest.DataUtils
             return new Pallete() 
             {
                 Id = Guid.NewGuid(),
-                Width = random.Next(1, PalleteLimit),
-                Height = random.Next(1, PalleteLimit),
-                Length = random.Next(1, PalleteLimit),
+                Width = random.Next(3, PalleteLimit),
+                Height = random.Next(3, PalleteLimit),
+                Length = random.Next(3, PalleteLimit),
                 Weigth = 30,
-                ProductionDate = DateTime.MinValue,
+                ProductionDate = DateTime.MinValue.Date,
             };
         }
 

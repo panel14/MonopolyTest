@@ -22,7 +22,7 @@
             var boxes = Boxes.Where(x => x.PalleteId == palleteId);
             if (boxes.Any())
             {
-                return boxes.Select(x => x.ProductionDate).Min();
+                return boxes.Select(x => x.ProductionDate).Max();
             }
             return Palletes.First(x => x.Id == palleteId).ProductionDate;
         }

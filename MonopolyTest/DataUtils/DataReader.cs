@@ -1,7 +1,6 @@
 ﻿using MonopolyTest.Domain.Models;
 using MonopolyTest.Utils;
 using System.Data.SqlClient;
-using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -15,8 +14,9 @@ namespace MonopolyTest.DataReader
 
     public static class DataReader
     {
-        private static readonly string configFilename = Path.Combine(Environment.CurrentDirectory, "config.txt");
-        //TODO: Add file format checks
+        private static readonly string ConfigFilename = Path.Combine(Environment.CurrentDirectory, "config.txt");
+        private static readonly string ScriptFilename = Path.Combine(Environment.CurrentDirectory, "createScript.sql");
+
         public static StorageCollection ReadDataFromFile(string filePath)
         {
             if (!File.Exists(filePath))
@@ -51,6 +51,8 @@ namespace MonopolyTest.DataReader
                 throw new FileNotFoundException();
             }
 
+            File.WriteAllText(filePath, string.Empty);
+
             StringBuilder sb = new("Pallets:\n");
             foreach (Pallete pallete in storage.Palletes)
             {
@@ -65,33 +67,43 @@ namespace MonopolyTest.DataReader
             File.AppendAllText(filePath, sb.ToString());
         }
 
-        public static StorageCollection ReadDataFromDB(string connectionString, string palleteTable = "Pallete", string boxTable = "Box")
+        private static bool IsCorrectTableName(string? tableName)
         {
+            Regex regex = new("(^[A-Z]{1}[a-z]+)?");
+            return tableName == null || !regex.IsMatch(tableName);
+        }
+
+        public static StorageCollection ReadDataFromDB(string connectionString, string? palleteTable, string? boxTable)
+        {
+            palleteTable = IsCorrectTableName(palleteTable) ? palleteTable : "Pallete";
+            boxTable = IsCorrectTableName(boxTable) ? boxTable : "Box";
+
             List<Box> boxes = new();
             List<Pallete> palletes = new();
 
             using SqlConnection connection = new(connectionString);
-            connection.OpenAsync();
+            connection.Open();
 
             using SqlCommand getPallets = new()
             {
                 Connection = connection,
                 CommandText = $"select * from {palleteTable}",
             };
-            using SqlDataReader palleteReader = getPallets.ExecuteReader();
-
-            while (palleteReader.Read())
+            using (SqlDataReader palleteReader = getPallets.ExecuteReader())
             {
-                Pallete pallete = new()
+                while (palleteReader.Read())
                 {
-                    Id = palleteReader.GetGuid(0),
-                    Width = palleteReader.GetInt32(1),
-                    Height = palleteReader.GetInt32(2),
-                    Length = palleteReader.GetInt32(3),
-                    Weigth = palleteReader.GetInt32(4),
-                    ProductionDate = palleteReader.GetDateTime(5),
-                };
-                palletes.Add(pallete);
+                    Pallete pallete = new()
+                    {
+                        Id = palleteReader.GetGuid(0),
+                        Width = palleteReader.GetInt32(1),
+                        Height = palleteReader.GetInt32(2),
+                        Length = palleteReader.GetInt32(3),
+                        Weigth = palleteReader.GetInt32(4),
+                        ProductionDate = palleteReader.GetDateTime(5),
+                    };
+                    palletes.Add(pallete);
+                }
             }
 
             using SqlCommand getBoxes = new()
@@ -99,74 +111,89 @@ namespace MonopolyTest.DataReader
                 Connection = connection,
                 CommandText = $"select * from {boxTable}"
             };
-            using SqlDataReader boxesReader = getBoxes.ExecuteReader();
-
-            while (boxesReader.Read())
+            using (SqlDataReader boxesReader = getBoxes.ExecuteReader())
             {
-                Box box = new()
+                while (boxesReader.Read())
                 {
-                    Id = boxesReader.GetGuid(0),
-                    Width = boxesReader.GetInt32(1),
-                    Height = boxesReader.GetInt32(2),
-                    Length = boxesReader.GetInt32(3),
-                    Weigth = boxesReader.GetInt32(4),
-                    PalleteId = boxesReader.SafeGetGuid(5),
-                    ProductionDate = boxesReader.GetDateTime(6),
-                };
-                boxes.Add(box);
+                    Box box = new()
+                    {
+                        Id = boxesReader.GetGuid(0),
+                        Width = boxesReader.GetInt32(1),
+                        Height = boxesReader.GetInt32(2),
+                        Length = boxesReader.GetInt32(3),
+                        Weigth = boxesReader.GetInt32(4),
+                        ProductionDate = boxesReader.GetDateTime(5),
+                        PalleteId = boxesReader.SafeGetGuid(6),
+                    };
+                    boxes.Add(box);
+                }
             }
 
             return new StorageCollection(palletes, boxes);
         }
 
-        public static void SaveDataToDB(StorageCollection collection, string connectionString, string palleteTable = "Pallete", string boxTable = "Box", bool needTruncate = false)
+        public static void SaveDataToDB(StorageCollection collection, string connectionString,
+            string? palleteTable, string? boxTable, bool needTruncate = false, bool needCreate = false)
         {
+            palleteTable = IsCorrectTableName(palleteTable) && !needCreate ? palleteTable : "Pallete";
+            boxTable = IsCorrectTableName(boxTable) && !needCreate ? boxTable : "Box";
+
             using SqlConnection connection = new(connectionString);
-            connection.OpenAsync();
+            connection.Open();
 
-            if (needTruncate)
+            if (needCreate)
             {
-                using SqlCommand truncate = connection.CreateCommand();
-                using SqlTransaction transaction = connection.BeginTransaction();
-
-                truncate.Connection = connection;
-                truncate.Transaction = transaction;
-
-                truncate.CommandText = $"truncate table {palleteTable}";
-                truncate.ExecuteNonQuery();
-
-                truncate.CommandText = $"truncate table {boxTable}";
-                truncate.ExecuteNonQuery();
-
-                transaction.Commit();
+                using SqlCommand create = new()
+                {
+                    Connection = connection,
+                    CommandText = File.ReadAllText(ScriptFilename)
+                };
+                create.ExecuteNonQuery();
             }
 
+            if (!needCreate && needTruncate)
+            {
+                StringBuilder sb = new("begin transaction;");
+                foreach (string s in new List<string> { palleteTable, boxTable })
+                {
+                    sb.Append($"truncate table {s};");
+                }
+                sb.Append("commit;");
+                SqlCommand truncate = new()
+                {
+                    Connection = connection,
+                    CommandText = sb.ToString(),
+                };
+                truncate.ExecuteNonQuery();
+            }
 
-            using SqlCommand saveBoxes = connection.CreateCommand();
-            using SqlTransaction saveBoxesTrans = connection.BeginTransaction();
-
-            saveBoxes.Connection = connection;
-            saveBoxes.Transaction = saveBoxesTrans;
-
+            StringBuilder sbb = new ("begin transaction;");
             foreach (Box box in collection.Boxes)
             {
-                saveBoxes.CommandText = $"insert into {boxTable} values {box}";
-                saveBoxes.ExecuteNonQuery();
+                sbb.Append($"insert into {boxTable} values {box};");
             }
-            saveBoxesTrans.Commit();
+            sbb.Append("commit;");
 
-            using SqlCommand savePalletes = connection.CreateCommand();
-            using SqlTransaction savePalletesTrans = connection.BeginTransaction();
+            SqlCommand saveBoxes = new()
+            {
+                Connection = connection,
+                CommandText = sbb.ToString()
+            };
+            saveBoxes.ExecuteNonQuery();
 
-            savePalletes.Connection = connection;
-            savePalletes.Transaction = savePalletesTrans;
-
+            StringBuilder sbp = new("begin transaction;");
             foreach (Pallete pallete in collection.Palletes)
             {
-                savePalletes.CommandText = $"insert into {palleteTable} values {pallete}";
-                savePalletes.ExecuteNonQuery();
+                sbp.Append($"insert into {palleteTable} values {pallete};");
             }
-            savePalletesTrans.Commit();
+            sbp.Append("commit;");
+
+            SqlCommand savePalletes = new()
+            {
+                Connection = connection,
+                CommandText = sbp.ToString()
+            };
+            savePalletes.ExecuteNonQuery();
         }
 
         public static void GetIntValueFromUser(out int value, string message, string error, Predicate<int> pred)
@@ -263,17 +290,26 @@ namespace MonopolyTest.DataReader
             GetDateValueFromUser(out DateTime prod, "Введите дату производства коробки:", "Неверный формат ввода. Формат: дд.мм.гггг");
 
             Dictionary<int, Guid?> palletsIds = new();
+            var sorted = palletes.Where(p => p.Width > values[0] && p.Height > values[1]).ToList();
             int j;
-            for (j = 0; j < palletes.Count; j++)
+            for (j = 0; j < sorted.Count; j++)
             {
-                palletsIds.Add(j + 1, palletes[j].Id);
+                palletsIds.Add(j + 1, sorted[j].Id);
             }
             j++;
             Console.WriteLine("Введите паллету (Id) на которую будет вложена коробка. Список доступных коробок:");
-            foreach(KeyValuePair<int, Guid?> pair in palletsIds)
+            if (palletsIds.Count == 0)
             {
-                Console.WriteLine(pair.Key + " : " + pair.Value);
+                foreach (KeyValuePair<int, Guid?> pair in palletsIds)
+                {
+                    Console.WriteLine(pair.Key + " : " + pair.Value);
+                }
             }
+            else
+            {
+                Console.WriteLine("Нет подходящих паллет (ширина или высота коробки превышают аналогичные параметры паллет, либо на складе нет паллет.)");
+            }
+
             string message = $"Введите номер соответствующего Id: (введите \"0\" чтобы оставить поле пустым)";
             GetIntValueFromUser(out int index, message, "Неверный формат ввода.", x => x >= 0 && x < j);
 
@@ -284,14 +320,14 @@ namespace MonopolyTest.DataReader
                 Height = values[1],
                 Length = values[2],
                 Weigth = values[3],
-                ProductionDate = prod,
+                ProductionDate = prod.Date,
                 PalleteId = (index > 0) ? palletsIds[index] : null,
             };
         }
 
         private static void SaveConfigurationStrings(string str, SaveType type)
         {
-            List<string> lines = File.ReadAllLines(configFilename).ToList();
+            List<string> lines = File.ReadAllLines(ConfigFilename).ToList();
             
             foreach (string line in Enum.GetNames(typeof(SaveType)))
             {
@@ -302,14 +338,14 @@ namespace MonopolyTest.DataReader
             }
 
             lines.Insert(lines.IndexOf(type.ToString()) + 1, str);
-            File.WriteAllLines(configFilename, lines);
+            File.WriteAllLines(ConfigFilename, lines);
         }
 
         private static Dictionary<int, string> GetConfigurationStrings(SaveType type)
         {
             Dictionary<int, string> pairs = new();
 
-            List<string> strings = File.ReadAllLines(configFilename).ToList();
+            List<string> strings = File.ReadAllLines(ConfigFilename).ToList();
             int midIndex = strings.IndexOf(SaveType.CONNECTION_STRING.ToString());
 
             int startIndex = 0;

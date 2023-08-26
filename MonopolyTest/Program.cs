@@ -7,6 +7,7 @@ string infoDataCommands = "Ввести данные:\n" +
     "g  - сгенерировать набор данных\n" +
     "f - прочитать набор из файла\n" +
     "db - подключится к существующей базе данных\n" +
+    "sh - посмотреть всю коллекцию\n" +
     "info - вывести информацию по текущим командам\n" +
     "next - закончить набор данных";
 
@@ -25,8 +26,8 @@ while ((command = Console.ReadLine()) != "next")
         case "h":
             List<Box> boxes = new();
             List<Pallete> palletes = new();
-
-            Console.WriteLine("Что хотите добавить?\np - добавить паллету\nb - добавить коробку\nend - закончить ввод");
+            string curOptions = "Что хотите добавить?\np - добавить паллету\nb - добавить коробку\nend - закончить ввод";
+            Console.WriteLine(curOptions);
             string? handCommand;
 
             while ((handCommand = Console.ReadLine()) != "end")
@@ -47,7 +48,7 @@ while ((command = Console.ReadLine()) != "next")
                         Console.WriteLine(wrongFormat);
                         break;
                 }
-                Console.WriteLine("Введите команду:");
+                Console.WriteLine(curOptions);
             }
 
             storageCollection = new StorageCollection(palletes, boxes);
@@ -80,21 +81,25 @@ while ((command = Console.ReadLine()) != "next")
             Console.WriteLine("Введите строку подключения:");
             string newLine = DataReader.GetUserStringWithSave("строки подключения", SaveType.CONNECTION_STRING);
 
-            //Console.WriteLine("Введите название таблицы с паллетами, для пропуска нажмите Enter. При пропуске будет использовано значение при умолчанию (\"Pallete\"):");
-            //string? palleteTableName = Console.ReadLine();
-            //Console.WriteLine("Введите название таблицы с коробками, для пропуска нажмите Enter. При пропуске будет использовано значение при умолчанию (\"Box\"):");
-            //string? boxTableName = Console.ReadLine();
+            Console.WriteLine("Введите название таблицы с паллетами. При пустом вводе будет использовано значение по умолчанию (Pallete):");
+            string? palleteTable = Console.ReadLine();
+
+            Console.WriteLine("Введите название таблицы с коробками. При пустом вводе будет использовано значение по умолчанию (Box):");
+            string? boxTable = Console.ReadLine();
 
             try
             {
-                storageCollection = DataReader.ReadDataFromDB(newLine);
+                storageCollection = DataReader.ReadDataFromDB(newLine, palleteTable, boxTable);
                 Console.WriteLine("Коллеция прочитана.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Ошибка: {0}. Попробуйте ещё раз.", ex.Message);
+                Console.WriteLine("Ошибка: {0}.\n Попробуйте ещё раз.", ex.Message);
             }
 
+            break;
+        case "sh":
+            DataPresenter.ShowStorage(storageCollection);
             break;
         case "info":
             Console.WriteLine(infoDataCommands);
@@ -148,23 +153,50 @@ while ((option = Console.ReadLine()) != "exit")
             Console.WriteLine("Введите строку подключения:");
             string newLine = DataReader.GetUserStringWithSave("строки подключения", SaveType.CONNECTION_STRING);
 
-            string message = "Очистить таблицей перед сохранением?[y/n]\nПри согласии, будет принята попытка очистить таблицы паллет и коробок (TRUNCATE TABLE...)";
-            DataReader.GetStringValueFromUser(out string answer, message, "Очистить таблицей перед сохранением?[y/n]", "^[yn]{1}$");
-            
-            DataReader.SaveDataToDB(storageCollection, newLine);
-            Console.WriteLine("Коллекция сохранена");
+            string createMessage= "Создать таблицы перед добавлением данных?[y/n]\n" +
+                   "При согласии, будет принята попытка создать таблицы паллет и коробок с именами Pallete и Box (CREATE TABLE...)";
+            DataReader.GetStringValueFromUser(out string cAnswer, createMessage, "Создать таблицы перед добавлением данных?[y/n]", "^[yn]{1}$");
+            string? palleteTable = null;
+            string? boxTable = null;
+
+            if (cAnswer.Equals("n"))
+            {
+                Console.WriteLine("Введите название таблицы с паллетами. При пустом вводе будет использовано значение по умолчанию (Pallete):");
+                palleteTable = Console.ReadLine();
+
+                Console.WriteLine("Введите название таблицы с коробками. При пустом вводе будет использовано значение по умолчанию (Box):");
+                boxTable = Console.ReadLine();
+            }
+
+            string truncateMessage = "Очистить таблицей перед сохранением?[y/n]\nПри согласии, будет принята попытка очистить таблицы паллет и коробок (TRUNCATE TABLE...)";
+            DataReader.GetStringValueFromUser(out string tAnswer, truncateMessage, "Очистить таблицей перед сохранением?[y/n]", "^[yn]{1}$");
+            try
+            {
+                DataReader.SaveDataToDB(storageCollection, newLine, palleteTable, boxTable, needCreate: cAnswer.Equals("y"), needTruncate: tAnswer.Equals("y"));
+                Console.WriteLine("Коллекция сохранена");
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("Ошибка: {0}.\n Попробуйте ещё раз.", ex.Message);
+            }
+
             break;
         case "t2":
             List<Guid> palletes = DataSorter.SortSetByBBDate(storageCollection);
             foreach (Guid p in palletes)
             {
-                Console.WriteLine("ID: {0}. Срок годности: {1}. Объем: {2}", p, storageCollection.GetPalleteBBDate(p), storageCollection.GetPalleteVolume(p));
+                Console.WriteLine("ID: {0}:\nСрок годности: {1}. Наибольший срок годности коробки на паллете: {2} Объем: {3}", 
+                    p,
+                    storageCollection.GetPalleteBBDate(p).ToString("yyyy-MM-dd"),
+                    storageCollection.Boxes.Where(x => x.PalleteId == p).Select(x => storageCollection.GetBoxBBDate(x.Id)).Min(),
+                    storageCollection.GetPalleteVolume(p));
+                Console.WriteLine("----------");
             }
-            Console.WriteLine("Все сроки годности:");
-            List<DateTime> BBDates = storageCollection.Palletes.Select(x => storageCollection.GetPalleteBBDate(x.Id)).OrderBy(x => x).ToList();
+            Console.WriteLine("Все сроки годности коробок:");
+            List<DateTime> BBDates = storageCollection.Boxes.Select(x => storageCollection.GetBoxBBDate(x.Id)).OrderBy(x => x).ToList();
             foreach (DateTime date in BBDates)
             {
-                Console.WriteLine(date.ToString("dd/MM/yyyy"));
+                Console.WriteLine(date.Date.ToString("yyyy-MM-dd"));
             }
             break;
         case "t1":
@@ -177,7 +209,7 @@ while ((option = Console.ReadLine()) != "exit")
                 
                 foreach(Pallete p in group)
                 {
-                    Console.WriteLine("ID: {0}. Срок годности: {1}. Вес: {2}", p.Id, storageCollection.GetPalleteBBDate(p.Id), p.Weigth);
+                    Console.WriteLine("ID: {0}. Срок годности: {1}. Вес: {2}", p.Id, storageCollection.GetPalleteBBDate(p.Id).ToString("yyyy-MM-dd"), p.Weigth);
                 }
                 i++;
             }
