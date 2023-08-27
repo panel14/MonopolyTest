@@ -1,6 +1,8 @@
 ﻿using MonopolyTest.Domain.Models;
 using MonopolyTest.Utils;
 using System.Data.SqlClient;
+using System.Resources;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -15,7 +17,6 @@ namespace MonopolyTest.DataReader
     public static class DataReader
     {
         private static readonly string ConfigFilename = Path.Combine(Environment.CurrentDirectory, "config.txt");
-        private static readonly string ScriptFilename = Path.Combine(Environment.CurrentDirectory, "createScript.sql");
 
         public static StorageCollection ReadDataFromFile(string filePath)
         {
@@ -146,7 +147,7 @@ namespace MonopolyTest.DataReader
                 using SqlCommand create = new()
                 {
                     Connection = connection,
-                    CommandText = File.ReadAllText(ScriptFilename)
+                    CommandText = Properties.Resources.createScript
                 };
                 create.ExecuteNonQuery();
             }
@@ -327,6 +328,11 @@ namespace MonopolyTest.DataReader
 
         private static void SaveConfigurationStrings(string str, SaveType type)
         {
+            if (!File.Exists(ConfigFilename))
+            {
+                File.Create(ConfigFilename).Close();
+            }
+
             List<string> lines = File.ReadAllLines(ConfigFilename).ToList();
             
             foreach (string line in Enum.GetNames(typeof(SaveType)))
@@ -343,6 +349,11 @@ namespace MonopolyTest.DataReader
 
         private static Dictionary<int, string> GetConfigurationStrings(SaveType type)
         {
+            if (!File.Exists(ConfigFilename))
+            {
+                File.Create(ConfigFilename).Close();
+            }
+
             Dictionary<int, string> pairs = new();
 
             List<string> strings = File.ReadAllLines(ConfigFilename).ToList();

@@ -94,7 +94,7 @@ while ((command = Console.ReadLine()) != "next")
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Ошибка: {0}.\n Попробуйте ещё раз.", ex.Message);
+                Console.WriteLine("Ошибка: {0}\nПопробуйте ещё раз.", ex.Message);
             }
 
             break;
@@ -159,6 +159,7 @@ while ((option = Console.ReadLine()) != "exit")
             string? palleteTable = null;
             string? boxTable = null;
 
+            bool nt = false;
             if (cAnswer.Equals("n"))
             {
                 Console.WriteLine("Введите название таблицы с паллетами. При пустом вводе будет использовано значение по умолчанию (Pallete):");
@@ -166,18 +167,20 @@ while ((option = Console.ReadLine()) != "exit")
 
                 Console.WriteLine("Введите название таблицы с коробками. При пустом вводе будет использовано значение по умолчанию (Box):");
                 boxTable = Console.ReadLine();
+
+                string truncateMessage = "Очистить таблицей перед сохранением?[y/n]\nПри согласии, будет принята попытка очистить таблицы паллет и коробок (TRUNCATE TABLE...)";
+                DataReader.GetStringValueFromUser(out string tAnswer, truncateMessage, "Очистить таблицей перед сохранением?[y/n]", "^[yn]{1}$");
+                nt = tAnswer.Equals("y");
             }
 
-            string truncateMessage = "Очистить таблицей перед сохранением?[y/n]\nПри согласии, будет принята попытка очистить таблицы паллет и коробок (TRUNCATE TABLE...)";
-            DataReader.GetStringValueFromUser(out string tAnswer, truncateMessage, "Очистить таблицей перед сохранением?[y/n]", "^[yn]{1}$");
             try
             {
-                DataReader.SaveDataToDB(storageCollection, newLine, palleteTable, boxTable, needCreate: cAnswer.Equals("y"), needTruncate: tAnswer.Equals("y"));
+                DataReader.SaveDataToDB(storageCollection, newLine, palleteTable, boxTable, needCreate: cAnswer.Equals("y"), needTruncate: nt);
                 Console.WriteLine("Коллекция сохранена");
             }
             catch(Exception ex)
             {
-                Console.WriteLine("Ошибка: {0}.\n Попробуйте ещё раз.", ex.Message);
+                Console.WriteLine("Ошибка: {0}\nПопробуйте ещё раз.", ex.Message);
             }
 
             break;
@@ -188,7 +191,7 @@ while ((option = Console.ReadLine()) != "exit")
                 Console.WriteLine("ID: {0}:\nСрок годности: {1}. Наибольший срок годности коробки на паллете: {2} Объем: {3}", 
                     p,
                     storageCollection.GetPalleteBBDate(p).ToString("yyyy-MM-dd"),
-                    storageCollection.Boxes.Where(x => x.PalleteId == p).Select(x => storageCollection.GetBoxBBDate(x.Id)).Min(),
+                    storageCollection.Boxes.Where(x => x.PalleteId == p).Select(x => storageCollection.GetBoxBBDate(x.Id)).Min().ToString("yyyy-MM-dd"),
                     storageCollection.GetPalleteVolume(p));
                 Console.WriteLine("----------");
             }
